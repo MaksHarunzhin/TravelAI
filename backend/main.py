@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import auth, chat, places, reviews, moderation
+from app.database import init_db
 
 app = FastAPI(
     title="TravelAI API",
@@ -31,6 +32,12 @@ app.include_router(chat.router)
 app.include_router(places.router)
 app.include_router(reviews.router)
 app.include_router(moderation.router)
+
+
+@app.on_event("startup")
+def on_startup():
+    """Инициализация БД при запуске приложения."""
+    init_db()
 
 
 @app.get("/")

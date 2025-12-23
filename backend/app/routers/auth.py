@@ -1,76 +1,55 @@
-from fastapi import APIRouter, HTTPException
+"""
+Роутер авторизации с хранением пользователей в SQLite.
+"""
+
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from passlib.context import CryptContext
+
+from app.database import get_db
+from app.models.user import User
 from app.schemas.auth import (
     UserCreate, UserLogin, LoginResponse, RegisterResponse, UserResponse, Role
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-# Временное хранилище пользователей (до подключения БД)
-MOCK_USERS = {
-    "user@test.com": {
-        "id": 1,
-        "name": "Максим Харунжин",
-        "email": "user@test.com",
-        "password": "123456",
-        "role": Role.USER
-    },
-    "mod@test.com": {
-        "id": 2,
-        "name": "Анна Модератор",
-        "email": "mod@test.com",
-        "password": "123456",
-        "role": Role.MODERATOR
-    },
-    "admin@test.com": {
-        "id": 3,
-        "name": "Админ Системы",
-        "email": "admin@test.com",
-        "password": "123456",
-        "role": Role.ADMIN
-    }
-}
+# Хэширование паролей через bcrypt
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Временное хранилище зарегистрированных пользователей
-registered_users = {}
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Проверка пароля."""
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def hash_password(password: str) -> str:
+    """Хэширование пароля."""
+    return pwd_context.hash(password)
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(data: UserLogin):
+def login(data: UserLogin, db: Session = Depends(get_db)):
     """
     Авторизация пользователя.
     UGC: событие входа пользователя в систему.
     """
     email = data.email.lower()
 
-    # Проверяем в тестовых пользователях
-    if email in MOCK_USERS:
-        user_data = MOCK_USERS[email]
-        if user_data["password"] == data.password:
-            return LoginResponse(
-                success=True,
-                token=f"mock_token_{user_data['id']}",
-                user=UserResponse(
-                    id=user_data["id"],
-                    email=user_data["email"],
-                    name=user_data["name"],
-                    role=user_data["role"]
-                )
-            )
+    # Ищем пользователя в БД
+    user = db.query(User).filter(User.email == email).first()
 
-    # Проверяем в зарегистрированных
-    if email in registered_users:
-        user_data = registered_users[email]
-        if user_data["password"] == data.password:
-            return LoginResponse(
-                success=True,
-                token=f"mock_token_{user_data['id']}",
-                user=UserResponse(
-                    id=user_data["id"],
-                    email=user_data["email"],
-                    name=user_data["name"],
-                    role=user_data["role"]
-                )
+    if user and verify_password(data.password, user.hashed_password):
+        return LoginResponse(
+            success=True,
+            token=f"token_{user.id}_{user.role.value}",
+            user=UserResponse(
+                id=user.id,
+                email=user.email,
+                name=user.name,
+                role=user.role
             )
+        )
 
     return LoginResponse(
         success=False,
@@ -79,7 +58,7 @@ async def login(data: UserLogin):
 
 
 @router.post("/register", response_model=RegisterResponse)
-async def register(data: UserCreate):
+def register(data: UserCreate, db: Session = Depends(get_db)):
     """
     Регистрация нового пользователя.
     UGC: событие создания нового пользователя.
@@ -87,38 +66,40 @@ async def register(data: UserCreate):
     email = data.email.lower()
 
     # Проверяем, не занят ли email
-    if email in MOCK_USERS or email in registered_users:
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
         return RegisterResponse(
             success=False,
             error="Пользователь с таким email уже существует"
         )
 
-    # Создаём нового пользователя
-    new_id = len(MOCK_USERS) + len(registered_users) + 1
-    registered_users[email] = {
-        "id": new_id,
-        "name": data.name,
-        "email": email,
-        "password": data.password,
-        "role": Role.USER
-    }
+    # Создаём нового пользователя с хэшированным паролем
+    new_user = User(
+        email=email,
+        name=data.name,
+        hashed_password=hash_password(data.password),
+        role=Role.USER
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
 
     return RegisterResponse(
         success=True,
         user=UserResponse(
-            id=new_id,
-            email=email,
-            name=data.name,
-            role=Role.USER
+            id=new_user.id,
+            email=new_user.email,
+            name=new_user.name,
+            role=new_user.role
         )
     )
 
 
 @router.post("/logout")
-async def logout():
+def logout():
     """
     Выход из системы.
     UGC: событие выхода пользователя.
     """
-    # TODO: Реализовать инвалидацию токена в БД
     return {"success": True}

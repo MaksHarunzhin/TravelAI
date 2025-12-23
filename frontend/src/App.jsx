@@ -234,10 +234,6 @@ const AuthPage = ({ onSwitchToChat }) => {
             {isLogin ? 'Зарегистрироваться' : 'Войти'}
           </button>
         </div>
-
-        <div className="auth-demo">
-          <p>Функционал авторизации в разработке</p>
-        </div>
       </div>
     </div>
   );
@@ -295,7 +291,7 @@ const ChatPanel = () => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: `Привет, ${user?.name || 'друг'}! Я ваш персональный помощник по поиску мест для отдыха и развлечений. Функционал чата в разработке.`,
+      text: `Привет, ${user?.name || 'друг'}! Я ваш персональный помощник по поиску мест для отдыха и развлечений.`,
       isUser: false,
       time: 'Сейчас'
     }
@@ -662,7 +658,7 @@ const ModeratorPanel = () => {
   return (
     <div className="moderator-panel">
       <div className="mod-header">
-        <h2><Icons.Shield /> Панель модератора</h2>
+        <h2><Icons.Shield /> Панель модерации</h2>
         <div className="mod-stats">
           <div className="stat">
             <span className="stat-value">{stats.pending_reviews}</span>

@@ -1,0 +1,23 @@
+# Claude
+CLAUDE.md
+.claude/
+
+# Environment variables
+.env
+.env.*
+
+# Python virtual environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# VSCode
+.vscode/
+
+# Node modules
+node_modules/
+
+# Build outputs
+dist/
+build/

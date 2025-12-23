@@ -403,6 +403,186 @@ const ChatPanel = () => {
 };
 
 // ============================================
+// COMPONENTS: Users Management (Admin)
+// ============================================
+
+const UsersManagement = ({ users, setUsers }) => {
+  const { user: currentUser } = useAuth();
+  const [editingUser, setEditingUser] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', email: '', role: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleEdit = (user) => {
+    setEditingUser(user.id);
+    setEditForm({ name: user.name, email: user.email, role: user.role });
+    setError('');
+  };
+
+  const handleCancel = () => {
+    setEditingUser(null);
+    setEditForm({ name: '', email: '', role: '' });
+    setError('');
+  };
+
+  const handleSave = async (userId) => {
+    setSaving(true);
+    setError('');
+
+    const originalUser = users.find(u => u.id === userId);
+    const updates = {};
+
+    if (editForm.name !== originalUser.name) updates.name = editForm.name;
+    if (editForm.email !== originalUser.email) updates.email = editForm.email;
+    if (editForm.role !== originalUser.role) updates.role = editForm.role;
+
+    if (Object.keys(updates).length === 0) {
+      handleCancel();
+      setSaving(false);
+      return;
+    }
+
+    const result = await api.updateUser(userId, updates);
+    setSaving(false);
+
+    if (result.id) {
+      setUsers(prev => prev.map(u => u.id === userId ? result : u));
+      handleCancel();
+    } else {
+      setError(result.detail || result.error || 'Ошибка сохранения');
+    }
+  };
+
+  const handleDelete = async (userId) => {
+    const user = users.find(u => u.id === userId);
+    if (!window.confirm(`Удалить пользователя ${user.name} (${user.email})?`)) {
+      return;
+    }
+
+    const result = await api.deleteUser(userId);
+    if (result.success) {
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } else {
+      setError(result.detail || result.error || 'Ошибка удаления');
+    }
+  };
+
+  const getRoleName = (role) => {
+    switch (role) {
+      case 'admin': return 'Админ';
+      case 'moderator': return 'Модератор';
+      default: return 'Пользователь';
+    }
+  };
+
+  if (users.length === 0) {
+    return <div className="empty-state">Нет пользователей</div>;
+  }
+
+  return (
+    <div className="users-management">
+      <p className="admin-note">Управление учётными данными пользователей</p>
+
+      {error && <div className="mod-error">{error}</div>}
+
+      <table className="users-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Имя</th>
+            <th>Email</th>
+            <th>Роль</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map(u => (
+            <tr key={u.id} className={editingUser === u.id ? 'editing' : ''}>
+              <td>{u.id}</td>
+              <td>
+                {editingUser === u.id ? (
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="edit-input"
+                  />
+                ) : u.name}
+              </td>
+              <td>
+                {editingUser === u.id ? (
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="edit-input"
+                  />
+                ) : u.email}
+              </td>
+              <td>
+                {editingUser === u.id ? (
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                    className="edit-select"
+                    disabled={u.id === currentUser?.id}
+                  >
+                    <option value="user">Пользователь</option>
+                    <option value="moderator">Модератор</option>
+                    <option value="admin">Админ</option>
+                  </select>
+                ) : (
+                  <span className={`role-badge ${u.role}`}>{getRoleName(u.role)}</span>
+                )}
+              </td>
+              <td>
+                {editingUser === u.id ? (
+                  <div className="action-buttons">
+                    <button
+                      className="btn-save"
+                      onClick={() => handleSave(u.id)}
+                      disabled={saving}
+                    >
+                      {saving ? '...' : <Icons.Check />}
+                    </button>
+                    <button
+                      className="btn-cancel"
+                      onClick={handleCancel}
+                      disabled={saving}
+                    >
+                      <Icons.X />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="action-buttons">
+                    <button
+                      className="btn-edit"
+                      onClick={() => handleEdit(u)}
+                      title="Редактировать"
+                    >
+                      Изменить
+                    </button>
+                    {u.id !== currentUser?.id && (
+                      <button
+                        className="btn-delete"
+                        onClick={() => handleDelete(u.id)}
+                        title="Удалить"
+                      >
+                        <Icons.X />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+// ============================================
 // COMPONENTS: Moderator Panel
 // ============================================
 
@@ -583,40 +763,7 @@ const ModeratorPanel = () => {
             )}
 
             {activeTab === 'users' && hasPermission('manage_users') && (
-              <div className="users-management">
-                {users.length === 0 ? (
-                  <div className="empty-state">В разработке</div>
-                ) : (
-                  <>
-                    <p className="admin-note">Управление пользователями доступно только администраторам</p>
-                    <table className="users-table">
-                      <thead>
-                        <tr>
-                          <th>ID</th>
-                          <th>Имя</th>
-                          <th>Email</th>
-                          <th>Роль</th>
-                          <th>Действия</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {users.map(u => (
-                          <tr key={u.id}>
-                            <td>{u.id}</td>
-                            <td>{u.name}</td>
-                            <td>{u.email}</td>
-                            <td><span className={`role-badge ${u.role}`}>{
-                              u.role === 'admin' ? 'Админ' :
-                              u.role === 'moderator' ? 'Модератор' : 'Пользователь'
-                            }</span></td>
-                            <td><button className="btn-small">Изменить роль</button></td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </>
-                )}
-              </div>
+              <UsersManagement users={users} setUsers={setUsers} />
             )}
           </>
         )}

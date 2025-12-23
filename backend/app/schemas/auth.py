@@ -47,3 +47,16 @@ class RegisterResponse(BaseModel):
     success: bool
     error: Optional[str] = None
     user: Optional[UserResponse] = None
+
+
+class UserUpdate(BaseModel):
+    """Схема для обновления данных пользователя администратором."""
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    role: Optional[Role] = None
+
+
+class UserListResponse(BaseModel):
+    """Список пользователей."""
+    users: list[UserResponse]
+    total: int

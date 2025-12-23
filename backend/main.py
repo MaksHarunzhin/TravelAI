@@ -8,7 +8,7 @@ TravelAI Backend - FastAPI Application
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import auth, chat, places, reviews, moderation
+from app.routers import auth, chat, places, reviews, moderation, admin
 from app.database import init_db
 
 app = FastAPI(
@@ -32,6 +32,7 @@ app.include_router(chat.router)
 app.include_router(places.router)
 app.include_router(reviews.router)
 app.include_router(moderation.router)
+app.include_router(admin.router)
 
 
 @app.on_event("startup")

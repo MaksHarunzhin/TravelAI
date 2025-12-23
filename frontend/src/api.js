@@ -125,12 +125,23 @@ class ApiClient {
   }
 
   async getUsers() {
-    return this.request('/moderation/users');
+    return this.request('/admin/users');
   }
 
-  async changeUserRole(userId, role) {
-    return this.request(`/moderation/users/${userId}/role?role=${role}`, {
-      method: 'PUT',
+  async getUser(userId) {
+    return this.request(`/admin/users/${userId}`);
+  }
+
+  async updateUser(userId, data) {
+    return this.request(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteUser(userId) {
+    return this.request(`/admin/users/${userId}`, {
+      method: 'DELETE',
     });
   }
 }
